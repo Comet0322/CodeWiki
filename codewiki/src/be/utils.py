@@ -31,11 +31,14 @@ def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
 
 _JS_BUNDLE = Path(__file__).parent / "js" / "parser.bundle.js"
 _pm_mermaid_js = None  # lazy-loaded pythonmonkey JS function
+_pm_broken = False     # permanent: once True, never retry pythonmonkey
 
 
 def _init_pythonmonkey() -> bool:
     """Lazily load the bundled JS mermaid parser via pythonmonkey."""
-    global _pm_mermaid_js
+    global _pm_mermaid_js, _pm_broken
+    if _pm_broken:
+        return False
     if _pm_mermaid_js is not None:
         return True
     try:
@@ -43,6 +46,7 @@ def _init_pythonmonkey() -> bool:
         _pm_mermaid_js = pm.require(str(_JS_BUNDLE))
         return True
     except Exception:
+        _pm_broken = True
         return False
 
 
@@ -120,7 +124,7 @@ async def _try_pythonmonkey_parse(diagram_content: str) -> "str | None":
     Returns the extracted parse-error message, "" on success, or None when
     pythonmonkey is unavailable so the caller can fall back to mermaid-py.
     """
-    global _pm_mermaid_js
+    global _pm_mermaid_js, _pm_broken
 
     if not _init_pythonmonkey():
         return None
@@ -143,7 +147,7 @@ async def _try_pythonmonkey_parse(diagram_content: str) -> "str | None":
     except Exception as e:
         error_str = str(e)
         if "cannot find a running Python event-loop" in error_str:
-            _pm_mermaid_js = None  # disable so subsequent calls fall back
+            _pm_broken = True  # engine state is unrecoverable — never retry
             return None
         match = re.search(r"Error:(.*?)(?=Stack Trace:|$)", error_str, re.DOTALL)
         if match:
