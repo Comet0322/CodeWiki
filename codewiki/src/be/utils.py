@@ -5,7 +5,6 @@ import threading
 from pathlib import Path
 from typing import List, Tuple
 import logging
-import tiktoken
 import traceback
 
 
@@ -47,14 +46,13 @@ def is_complex_module(components: dict[str, any], core_component_ids: list[str])
 # ---------------------- Token Counting ---------------------
 # ------------------------------------------------------------
 
-enc = tiktoken.encoding_for_model("gpt-4")
-
 def count_tokens(text: str) -> int:
     """
     Count the number of tokens in a text.
     """
+    import tiktoken
+    enc = tiktoken.encoding_for_model("gpt-4")
     length = len(enc.encode(text))
-    # logger.debug(f"Number of tokens: {length}")
     return length
 
 

@@ -32,11 +32,13 @@ def version():
 
 # Import commands
 from codewiki.cli.commands.config import config_group
-from codewiki.cli.commands.generate import generate_command
+from codewiki.cli.commands.analyze import analyze_command
+from codewiki.cli.commands.html import html_command
 
 # Register command groups
 cli.add_command(config_group)
-cli.add_command(generate_command, name="generate")
+cli.add_command(analyze_command, name="analyze")
+cli.add_command(html_command, name="html")
 
 
 @cli.command(name="mcp")

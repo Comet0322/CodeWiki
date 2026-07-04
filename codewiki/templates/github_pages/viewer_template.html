@@ -465,19 +465,20 @@
         
         function buildNavItem(key, data, depth) {
             const indentClass = depth > 0 ? 'nav-subsection' : 'nav-section';
-            const fileName = `${key}.md`;
-            
+            const fileName = data.file || `${key}.md`;
+            const displayTitle = data.title || formatNavTitle(key);
+
             let html = `<div class="${indentClass}">`;
-            
+
             if (data.components && data.components.length > 0) {
                 html += `<div class="nav-item" data-file="${fileName}">
-                    ${formatNavTitle(key)}
+                    ${displayTitle}
                 </div>`;
             } else if (depth === 0) {
-                html += `<h3>${formatNavTitle(key)}</h3>`;
+                html += `<h3>${displayTitle}</h3>`;
             } else {
                 html += `<div class="nav-item" data-file="${fileName}">
-                    ${formatNavTitle(key)}
+                    ${displayTitle}
                 </div>`;
             }
             
