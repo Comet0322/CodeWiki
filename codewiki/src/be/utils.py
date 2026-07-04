@@ -30,8 +30,8 @@ def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
 # ------------------------------------------------------------
 
 _JS_BUNDLE = Path(__file__).parent / "js" / "parser.bundle.js"
-_pm_mermaid_js = None  # lazy-loaded pythonmonkey JS function
-_pm_broken = False     # permanent: once True, never retry pythonmonkey
+_pm_mermaid_js = None  # lazy-loaded pythonmonkey JS function; persists across files
+_pm_broken = False     # reset at the start of each file so every md gets a fresh attempt
 
 
 def _init_pythonmonkey() -> bool:
@@ -63,6 +63,9 @@ async def validate_mermaid_diagrams(md_file_path: str, relative_path: str) -> st
         "All mermaid diagrams are syntax correct" if all diagrams are valid,
         otherwise an error message with details about invalid diagrams.
     """
+    global _pm_broken
+    _pm_broken = False  # give pythonmonkey a fresh chance for each file
+
     try:
         file_path = Path(md_file_path)
         if not file_path.exists():
