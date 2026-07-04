@@ -4,7 +4,6 @@ Main CLI application for CodeWiki using Click framework.
 
 import sys
 import click
-from pathlib import Path
 
 from codewiki import __version__
 
@@ -14,12 +13,10 @@ from codewiki import __version__
 @click.pass_context
 def cli(ctx):
     """
-    CodeWiki: Transform codebases into comprehensive documentation.
-    
-    Generate AI-powered documentation for your code repositories with support
-    for Python, Java, JavaScript, TypeScript, C, C++, and C#.
+    CodeWiki: Analyze codebases and render documentation as HTML.
+
+    Supports Python, Java, JavaScript, TypeScript, C, C++, C#, and more.
     """
-    # Ensure context object exists
     ctx.ensure_object(dict)
 
 
@@ -27,40 +24,13 @@ def cli(ctx):
 def version():
     """Display version information."""
     click.echo(f"CodeWiki CLI v{__version__}")
-    click.echo("Python-based documentation generator using AI analysis")
-    
 
-# Import commands
-from codewiki.cli.commands.config import config_group
+
 from codewiki.cli.commands.analyze import analyze_command
 from codewiki.cli.commands.html import html_command
 
-# Register command groups
-cli.add_command(config_group)
 cli.add_command(analyze_command, name="analyze")
 cli.add_command(html_command, name="html")
-
-
-@cli.command(name="mcp")
-def mcp_command():
-    """Start CodeWiki as an MCP (Model Context Protocol) server.
-
-    Exposes documentation generation tools via MCP stdio transport.
-    Configure in your MCP client (Claude, Cursor, etc.) as:
-
-    \b
-    {
-        "mcpServers": {
-            "codewiki": {
-                "command": "codewiki",
-                "args": ["mcp"]
-            }
-        }
-    }
-    """
-    import asyncio
-    from codewiki.mcp.server import main as mcp_main
-    asyncio.run(mcp_main())
 
 
 def main():
@@ -77,4 +47,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
