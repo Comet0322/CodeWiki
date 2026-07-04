@@ -7,7 +7,7 @@ name = "codewiki"
 version = "1.0.1"
 description = "Transform codebases into comprehensive documentation using AI-powered analysis"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
     {name = "CodeWiki Contributors"}
@@ -38,7 +38,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "python-dotenv>=1.2.2",
     "colorama>=0.4.6",
-    "mermaid-parser-py>=0.0.2",
+    "pythonmonkey>=1.2.0,<2.0.0",
     "mermaid-py>=0.8.0"
 ]
 
@@ -83,7 +83,7 @@ packages = [
 ]
 
 [tool.setuptools.package-data]
-codewiki = ["templates/**/*", "py.typed"]
+codewiki = ["templates/**/*", "py.typed", "src/be/js/*.js"]
 
 [tool.black]
 line-length = 100

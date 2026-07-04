@@ -1,23 +1,20 @@
 import asyncio
+import json
+import os
 import re
 import sys
 import threading
 from pathlib import Path
 from typing import List, Tuple
 import logging
-import traceback
 
 
 logger = logging.getLogger(__name__)
 
 
-# PythonMonkey (used by mermaid_parser.parse_mermaid_py) binds its JS engine
-# to the thread that first imported it — typically the main thread at module
-# load time. The caw backend dispatches MCP tool calls on a FastMCP
-# daemon-thread event loop, where parse_mermaid_py raises
-# "cannot find a running Python event-loop". Recording the main loop here
-# lets validate_single_diagram marshal the call back via
-# asyncio.run_coroutine_threadsafe so PythonMonkey finds its home loop.
+# PythonMonkey binds its JS engine to the thread that first imports it.
+# Recording the main loop here lets validate_single_diagram marshal the call
+# back via asyncio.run_coroutine_threadsafe so PythonMonkey finds its home loop.
 _main_loop: "asyncio.AbstractEventLoop | None" = None
 _main_loop_thread_ident: int | None = None
 
@@ -27,145 +24,105 @@ def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
     _main_loop = loop
     _main_loop_thread_ident = threading.get_ident()
 
-# ------------------------------------------------------------
-# ---------------------- Complexity Check --------------------
-# ------------------------------------------------------------
-
-def is_complex_module(components: dict[str, any], core_component_ids: list[str]) -> bool:
-    files = set()
-    for component_id in core_component_ids:
-        if component_id in components:
-            files.add(components[component_id].file_path)
-
-    result = len(files) > 1
-
-    return result
-
-
-# ------------------------------------------------------------
-# ---------------------- Token Counting ---------------------
-# ------------------------------------------------------------
-
-def count_tokens(text: str) -> int:
-    """
-    Count the number of tokens in a text.
-    """
-    import tiktoken
-    enc = tiktoken.encoding_for_model("gpt-4")
-    length = len(enc.encode(text))
-    return length
-
 
 # ------------------------------------------------------------
 # ---------------------- Mermaid Validation -----------------
 # ------------------------------------------------------------
 
+_JS_BUNDLE = Path(__file__).parent / "js" / "parser.bundle.js"
+_pm_mermaid_js = None  # lazy-loaded pythonmonkey JS function
+
+
+def _init_pythonmonkey() -> bool:
+    """Lazily load the bundled JS mermaid parser via pythonmonkey."""
+    global _pm_mermaid_js
+    if _pm_mermaid_js is not None:
+        return True
+    try:
+        import pythonmonkey as pm
+        _pm_mermaid_js = pm.require(str(_JS_BUNDLE))
+        return True
+    except Exception:
+        return False
+
+
+async def _parse_via_pythonmonkey_js(src: str) -> dict:
+    s = await _pm_mermaid_js(src)
+    return json.loads(s)
+
+
 async def validate_mermaid_diagrams(md_file_path: str, relative_path: str) -> str:
     """
     Validate all Mermaid diagrams in a markdown file.
-    
-    Args:
-        md_file_path: Path to the markdown file to check
-        relative_path: Relative path to the markdown file
+
     Returns:
         "All mermaid diagrams are syntax correct" if all diagrams are valid,
-        otherwise returns error message with details about invalid diagrams
+        otherwise an error message with details about invalid diagrams.
     """
-
     try:
-        # Read the markdown file
         file_path = Path(md_file_path)
         if not file_path.exists():
             return f"Error: File '{md_file_path}' does not exist"
-        
+
         content = file_path.read_text(encoding='utf-8')
-        
-        # Extract all mermaid code blocks
         mermaid_blocks = extract_mermaid_blocks(content)
-        
+
         if not mermaid_blocks:
             return "No mermaid diagrams found in the file"
-        
-        # Validate each mermaid diagram sequentially to avoid segfaults
+
         errors = []
         for i, (line_start, diagram_content) in enumerate(mermaid_blocks, 1):
             error_msg = await validate_single_diagram(diagram_content, i, line_start)
             if error_msg:
                 errors.append("\n")
                 errors.append(error_msg)
-        
-        # if errors:
-        #     logger.debug(f"Mermaid syntax errors found in file: {md_file_path}: {errors}")
-        
+
         if errors:
             return "Mermaid syntax errors found in file: " + relative_path + "\n" + "\n".join(errors)
         else:
             return "All mermaid diagrams in file: " + relative_path + " are syntax correct"
-            
+
     except Exception as e:
         return f"Error processing file: {str(e)}"
 
 
 def extract_mermaid_blocks(content: str) -> List[Tuple[int, str]]:
-    """
-    Extract all mermaid code blocks from markdown content.
-    
+    """Extract all mermaid code blocks from markdown content.
+
     Returns:
-        List of tuples containing (line_number, diagram_content)
+        List of (line_number, diagram_content) tuples.
     """
     mermaid_blocks = []
     lines = content.split('\n')
     i = 0
-    
+
     while i < len(lines):
         line = lines[i].strip()
-        
-        # Look for mermaid code block start
         if line == '```mermaid' or line.startswith('```mermaid'):
             start_line = i + 1
             diagram_lines = []
             i += 1
-            
-            # Collect lines until we find the closing ```
             while i < len(lines):
                 if lines[i].strip() == '```':
                     break
                 diagram_lines.append(lines[i])
                 i += 1
-            
-            if diagram_lines:  # Only add non-empty diagrams
-                diagram_content = '\n'.join(diagram_lines)
-                mermaid_blocks.append((start_line, diagram_content))
-        
+            if diagram_lines:
+                mermaid_blocks.append((start_line, '\n'.join(diagram_lines)))
         i += 1
-    
+
     return mermaid_blocks
 
 
-# PythonMonkey 1.3.1 only supports Python 3.8–3.11. On 3.12+ it still imports,
-# but its SpiderMonkey cleanup runs on the wrong thread during _Py_Finalize and
-# segfaults at interpreter shutdown (macOS crash dialog after a successful run).
-# Skip it proactively so SpiderMonkey is never loaded into the process.
-_PYTHONMONKEY_BROKEN = sys.version_info >= (3, 12)
-
-
-async def _try_pythonmonkey_parse(diagram_content: str) -> str | None:
-    """Attempt to parse via PythonMonkey/mermaid-parser-py.
+async def _try_pythonmonkey_parse(diagram_content: str) -> "str | None":
+    """Attempt to parse via the embedded pythonmonkey JS engine.
 
     Returns the extracted parse-error message, "" on success, or None when
-    PythonMonkey itself is unusable (broken JS event loop binding on
-    Python 3.13+) so the caller can fall back to mermaid-py.
+    pythonmonkey is unavailable so the caller can fall back to mermaid-py.
     """
-    global _PYTHONMONKEY_BROKEN
-    if _PYTHONMONKEY_BROKEN:
-        return None
+    global _pm_mermaid_js
 
-    import os
-
-    try:
-        from mermaid_parser.parser import parse_mermaid_py
-    except Exception:
-        _PYTHONMONKEY_BROKEN = True
+    if not _init_pythonmonkey():
         return None
 
     old_stderr = sys.stderr
@@ -177,24 +134,20 @@ async def _try_pythonmonkey_parse(diagram_content: str) -> str | None:
             and threading.get_ident() != _main_loop_thread_ident
         ):
             fut = asyncio.run_coroutine_threadsafe(
-                parse_mermaid_py(diagram_content), _main_loop
+                _parse_via_pythonmonkey_js(diagram_content), _main_loop
             )
             await asyncio.wrap_future(fut)
         else:
-            await parse_mermaid_py(diagram_content)
+            await _parse_via_pythonmonkey_js(diagram_content)
         return ""
     except Exception as e:
         error_str = str(e)
-        # PythonMonkey 1.3.1 only supports Python 3.8-3.11; on newer Pythons
-        # every JS call raises this. Latch the failure once so subsequent
-        # diagrams skip the broken path and go straight to mermaid-py.
         if "cannot find a running Python event-loop" in error_str:
-            _PYTHONMONKEY_BROKEN = True
+            _pm_mermaid_js = None  # disable so subsequent calls fall back
             return None
         match = re.search(r"Error:(.*?)(?=Stack Trace:|$)", error_str, re.DOTALL)
         if match:
             return match.group(0).strip()
-        # Unknown error from the JS parser — fall back rather than surface it.
         return None
     finally:
         sys.stderr.close()
@@ -202,12 +155,7 @@ async def _try_pythonmonkey_parse(diagram_content: str) -> str | None:
 
 
 def _parse_via_mermaid_py(diagram_content: str) -> str:
-    """Validate via mermaid-py. Returns parse-error text, or "" if valid.
-
-    mermaid-py raises MermaidError on parse failure and returns an SVG body
-    on success — we must drive the result off the exception, not the body
-    text, otherwise a successful SVG gets reported as a parse error.
-    """
+    """Validate via mermaid-py. Returns parse-error text, or "" if valid."""
     import mermaid as md
     try:
         md.Mermaid(diagram_content)
@@ -217,17 +165,7 @@ def _parse_via_mermaid_py(diagram_content: str) -> str:
 
 
 async def validate_single_diagram(diagram_content: str, diagram_num: int, line_start: int) -> str:
-    """
-    Validate a single mermaid diagram.
-
-    Args:
-        diagram_content: The mermaid diagram content
-        diagram_num: Diagram number for error reporting
-        line_start: Starting line number in the file
-
-    Returns:
-        Error message if invalid, empty string if valid
-    """
+    """Validate a single mermaid diagram. Returns error message or ""."""
     core_error = await _try_pythonmonkey_parse(diagram_content)
     if core_error is None:
         try:
@@ -245,11 +183,3 @@ async def validate_single_diagram(diagram_content: str, diagram_num: int, line_s
         newline = '\n'
         return f"Diagram {diagram_num}: Parse error on line {actual_line_in_file}:{newline}{newline.join(core_error.split(newline)[1:])}"
     return f"Diagram {diagram_num}: {core_error}"
-
-
-if __name__ == "__main__":
-    # Test with the provided file
-    import asyncio
-    test_file = "output/docs/SWE_agent-docs/agent_hooks.md"
-    result = asyncio.run(validate_mermaid_diagrams(test_file, "agent_hooks.md"))
-    print(result)
