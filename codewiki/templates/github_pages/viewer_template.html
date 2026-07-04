@@ -384,12 +384,6 @@
                 <div id="info-content">{{INFO_CONTENT}}</div>
             </div>
             
-            <div class="nav-section">
-                <div class="nav-item active" data-file="overview.md">
-                    📄 Overview
-                </div>
-            </div>
-            
             <div id="navigation"></div>
         </nav>
         
@@ -439,10 +433,24 @@
             if (MODULE_TREE) {
                 buildNavigation();
             }
-            
-            // Load overview by default
-            loadDocument('overview.md');
+
+            // Load the first leaf document from MODULE_TREE
+            const firstFile = findFirstFile(MODULE_TREE);
+            if (firstFile) {
+                loadDocument(firstFile);
+            }
         });
+
+        function findFirstFile(tree) {
+            for (const data of Object.values(tree)) {
+                if (data.file) return data.file;
+                if (data.children) {
+                    const found = findFirstFile(data.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
         
         function buildNavigation() {
             const nav = document.getElementById('navigation');
@@ -488,13 +496,13 @@
                     ${displayTitle}
                 </div>`;
             }
-            
+
             if (data.children) {
                 for (const [childKey, childData] of Object.entries(data.children)) {
                     html += buildNavItem(childKey, childData, depth + 1);
                 }
             }
-            
+
             html += '</div>';
             return html;
         }
@@ -562,20 +570,18 @@
                 const href = link.getAttribute('href');
                 if (!href) return;
                 
-                // Check if it's a markdown file link (ends with .md or .MD)
-                // Also handle cases with anchors like "file.md#section"
-                const mdMatch = href.match(/([^\/]*\.md(?:#.*)?$)/i);
-                if (mdMatch) {
+                // Intercept internal .md links (not external URLs)
+                const isInternal = /\.md(#.*)?$/i.test(href) && !/^https?:\/\//i.test(href);
+                if (isInternal) {
                     e.preventDefault();
                     e.stopPropagation();
-                    
-                    // Extract filename without anchor
-                    const fullMatch = mdMatch[1];
-                    const filename = fullMatch.split('#')[0];
-                    
+
+                    // Use the full href path (root-relative) for loadDocument
+                    const filename = href.split('#')[0];
+
                     // Load the document
                     loadDocument(filename);
-                    
+
                     // Update active state in sidebar
                     document.querySelectorAll('.nav-item').forEach(item => {
                         if (item.getAttribute('data-file') === filename) {
@@ -628,21 +634,13 @@
 
                     const svgEl = element.querySelector('svg');
                     if (svgEl) {
-                        // Derive container height from SVG viewBox, capped at 80vh
-                        const viewBox = svgEl.getAttribute('viewBox');
-                        let naturalH = 400;
-                        if (viewBox) {
-                            const parts = viewBox.trim().split(/[\s,]+/);
-                            if (parts.length === 4) {
-                                naturalH = parseFloat(parts[3]) || naturalH;
-                            }
-                        } else if (svgEl.getAttribute('height')) {
-                            naturalH = parseFloat(svgEl.getAttribute('height')) || naturalH;
-                        }
-                        element.style.height = Math.min(naturalH, window.innerHeight * 0.8) + 'px';
-
+                        // Remove mermaid's max-width cap so the SVG can fill the container
+                        svgEl.style.maxWidth = 'none';
                         svgEl.style.width = '100%';
                         svgEl.style.height = '100%';
+
+                        element.style.height = '400px';
+
                         svgPanZoom(svgEl, {
                             zoomEnabled: true,
                             controlIconsEnabled: true,

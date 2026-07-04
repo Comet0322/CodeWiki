@@ -31,30 +31,50 @@ def _collect_leaves(sections: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return leaves
 
 
-def _spec_to_module_tree(sections: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _read_md_title(md_path: Path) -> Optional[str]:
+    """Return the text of the first '# ' heading in a markdown file, or None."""
+    try:
+        for line in md_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                return stripped[2:].strip()
+    except Exception:
+        pass
+    return None
+
+
+def _spec_to_module_tree(
+    sections: List[Dict[str, Any]],
+    input_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
     """
     Convert doc_spec.json sections to the module_tree format expected by
     HTMLGenerator / viewer_template.html.
 
     Leaf nodes carry explicit 'file' and 'title' so the template JS can use
     them instead of deriving a filename from the key.
+    When input_dir is provided the title is taken from the markdown's first
+    '# ' heading (falling back to the spec title).
     """
     tree: Dict[str, Any] = {}
     for i, section in enumerate(sections):
         key = str(i)
-        title = section.get("title", key)
+        spec_title = section.get("title", key)
         if "file" in section:
+            md_title = None
+            if input_dir:
+                md_title = _read_md_title(input_dir / section["file"])
             tree[key] = {
-                "title": title,
+                "title": md_title or spec_title,
                 "file": section["file"],
                 "components": ["_"],  # non-empty so the template renders it as a link
-                "children": {},
+                "children": _spec_to_module_tree(section.get("children", []), input_dir),
             }
         elif "children" in section:
             tree[key] = {
-                "title": title,
+                "title": spec_title,
                 "components": [],
-                "children": _spec_to_module_tree(section["children"]),
+                "children": _spec_to_module_tree(section["children"], input_dir),
             }
     return tree
 
@@ -94,15 +114,25 @@ def _validate_links(
             href = match.group(1).split("#")[0]
             if href.startswith("http"):
                 continue
-            # Resolve relative to the file's own directory
-            resolved = (md_path.parent / href).resolve()
-            rel = None
+            # Links must be root-relative (relative to input_dir) so the viewer
+            # can resolve them without knowing the current document's directory.
+            if href in known_files:
+                continue
+            # Try resolving relative to the file's directory to suggest the
+            # correct root-relative path in the error message.
+            resolved_rel = None
             try:
-                rel = resolved.relative_to(input_dir.resolve()).as_posix()
+                resolved_abs = (md_path.parent / href).resolve()
+                resolved_rel = resolved_abs.relative_to(input_dir.resolve()).as_posix()
             except ValueError:
                 pass
-            if rel and rel not in known_files:
-                errors.append(f"Broken link in {leaf['file']}: [{href}] not in spec")
+            if resolved_rel and resolved_rel in known_files:
+                errors.append(
+                    f"Non-root-relative link in {leaf['file']}: "
+                    f"`{href}` — write as `{resolved_rel}`"
+                )
+            else:
+                errors.append(f"Broken link in {leaf['file']}: `{href}` not found in spec")
     return errors
 
 
@@ -217,11 +247,39 @@ def html_command(spec: str, input_dir: str, output: str, title: Optional[str], v
         # --- Build navigation tree ---
         logger.step("Building HTML...", 3, 4)
 
-        module_tree = _spec_to_module_tree(sections)
+        module_tree = _spec_to_module_tree(sections, input_path)
 
         doc_title = title
         if not doc_title:
             doc_title = spec_data.get("repo_name") or input_path.name
+
+        # Build metadata from spec fields + dependency_graph.json (if present)
+        spec_metadata: Dict[str, Any] = {"documents": len(leaves)}
+        if spec_data.get("language"):
+            spec_metadata["language"] = spec_data["language"]
+        if spec_data.get("target_audience"):
+            spec_metadata["target_audience"] = spec_data["target_audience"]
+
+        dep_graph_path = input_path / "dependency_graph.json"
+        if not dep_graph_path.exists():
+            click.secho(
+                f"✗ dependency_graph.json not found in {input_path}\n"
+                "  Run `codewiki analyze` first to generate it.",
+                fg="red", err=True,
+            )
+            sys.exit(1)
+
+        try:
+            dep = json.loads(dep_graph_path.read_text(encoding="utf-8"))
+            if dep.get("analyzed_at"):
+                spec_metadata["generated"] = dep["analyzed_at"]
+            if dep.get("commit_id"):
+                spec_metadata["commit_id"] = dep["commit_id"]
+            if dep.get("total_components") is not None:
+                spec_metadata["total_components"] = dep["total_components"]
+        except json.JSONDecodeError as e:
+            click.secho(f"✗ Invalid JSON in dependency_graph.json: {e}", fg="red", err=True)
+            sys.exit(1)
 
         # --- Generate HTML ---
         from codewiki.cli.html_generator import HTMLGenerator
@@ -239,6 +297,7 @@ def html_command(spec: str, input_dir: str, output: str, title: Optional[str], v
             repository_url=repo_info.get("url"),
             github_pages_url=repo_info.get("github_pages_url"),
             docs_dir=input_path,
+            metadata=spec_metadata,
         )
 
         logger.step("Done", 4, 4)

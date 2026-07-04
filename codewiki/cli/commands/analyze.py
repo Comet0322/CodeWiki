@@ -6,6 +6,7 @@ Outputs dependency_graph.json without any LLM calls.
 import sys
 import json
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Dict, Any
 import click
@@ -120,10 +121,19 @@ def analyze_command(repo: str, output: str, include: Optional[str], exclude: Opt
         total_files = len(files)
         logger.success(f"Analyzed {len(components)} components across {total_files} files")
 
+        commit_id = None
+        try:
+            import git as gitpkg
+            commit_id = gitpkg.Repo(repo_path).head.commit.hexsha
+        except Exception:
+            pass
+
         result = {
             "repo_name": repo_path.name,
+            "analyzed_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "total_files": total_files,
             "total_components": len(components),
+            "commit_id": commit_id,
             "leaf_nodes": leaf_nodes,
             "files": files,
         }

@@ -171,49 +171,24 @@ class HTMLGenerator:
         safe_write(output_path, html_content)
     
     def _build_info_content(self, metadata: Optional[Dict[str, Any]]) -> str:
-        """
-        Build HTML content for repo info section.
-        
-        Args:
-            metadata: Metadata dictionary
-            
-        Returns:
-            HTML string for info content
-        """
-        if not metadata or not metadata.get('generation_info'):
+        if not metadata:
             return ""
-        
-        info = metadata.get('generation_info', {})
-        stats = metadata.get('statistics', {})
-        
+
         html_parts = []
-        
-        if info.get('main_model'):
-            html_parts.append(f'<div class="info-row"><strong>Model:</strong> {self._escape_html(info["main_model"])}</div>')
-        
-        if info.get('timestamp'):
-            try:
-                from datetime import datetime
-                timestamp = info['timestamp']
-                # Parse ISO format timestamp
-                if isinstance(timestamp, str):
-                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-                    formatted_date = dt.strftime('%Y-%m-%d')
-                    html_parts.append(f'<div class="info-row"><strong>Generated:</strong> {formatted_date}</div>')
-            except Exception:
-                pass
-        
-        if info.get('commit_id'):
-            commit_short = info['commit_id'][:8]
-            html_parts.append(f'<div class="info-row"><strong>Commit:</strong> {commit_short}</div>')
-        
-        if stats.get('total_components'):
-            components_str = f"{stats['total_components']:,}"
-            html_parts.append(f'<div class="info-row"><strong>Components:</strong> {components_str}</div>')
-        
-        if stats.get('max_depth'):
-            html_parts.append(f'<div class="info-row"><strong>Max Depth:</strong> {stats["max_depth"]}</div>')
-        
+
+        if metadata.get('language'):
+            html_parts.append(f'<div class="info-row"><strong>Language:</strong> {self._escape_html(metadata["language"])}</div>')
+        if metadata.get('target_audience'):
+            html_parts.append(f'<div class="info-row"><strong>Audience:</strong> {self._escape_html(metadata["target_audience"])}</div>')
+        if metadata.get('generated'):
+            html_parts.append(f'<div class="info-row"><strong>Generated:</strong> {self._escape_html(metadata["generated"])}</div>')
+        if metadata.get('commit_id'):
+            html_parts.append(f'<div class="info-row"><strong>Commit:</strong> {self._escape_html(metadata["commit_id"][:8])}</div>')
+        if metadata.get('total_components') is not None:
+            html_parts.append(f'<div class="info-row"><strong>Components:</strong> {metadata["total_components"]:,}</div>')
+        if metadata.get('documents') is not None:
+            html_parts.append(f'<div class="info-row"><strong>Documents:</strong> {metadata["documents"]}</div>')
+
         return '\n                '.join(html_parts)
     
     def _escape_html(self, text: str) -> str:
