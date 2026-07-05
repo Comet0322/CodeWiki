@@ -257,8 +257,6 @@ def html_command(spec: str, input_dir: str, output: str, title: Optional[str], v
         spec_metadata: Dict[str, Any] = {"documents": len(leaves)}
         if spec_data.get("language"):
             spec_metadata["language"] = spec_data["language"]
-        if spec_data.get("target_audience"):
-            spec_metadata["target_audience"] = spec_data["target_audience"]
 
         dep_graph_path = input_path / "dependency_graph.json"
         if not dep_graph_path.exists():
@@ -286,6 +284,7 @@ def html_command(spec: str, input_dir: str, output: str, title: Optional[str], v
 
         output_path.mkdir(parents=True, exist_ok=True)
         index_html = output_path / "index.html"
+        standalone_html = output_path / "standalone.html"
 
         html_gen = HTMLGenerator()
         repo_info = html_gen.detect_repository_info(input_path)
@@ -300,8 +299,20 @@ def html_command(spec: str, input_dir: str, output: str, title: Optional[str], v
             metadata=spec_metadata,
         )
 
+        html_gen.generate_standalone(
+            output_path=standalone_html,
+            title=doc_title,
+            input_dir=input_path,
+            leaves=leaves,
+            module_tree=module_tree,
+            repository_url=repo_info.get("url"),
+            github_pages_url=repo_info.get("github_pages_url"),
+            metadata=spec_metadata,
+        )
+
         logger.step("Done", 4, 4)
         logger.success(f"Generated → {index_html}")
+        logger.success(f"Generated → {standalone_html}")
 
     except KeyboardInterrupt:
         click.echo("\n\nInterrupted by user")

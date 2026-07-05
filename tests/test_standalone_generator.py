@@ -3,6 +3,8 @@ import pytest
 from pathlib import Path
 from codewiki.cli.html_generator import HTMLGenerator
 from codewiki.cli.utils.errors import FileSystemError
+from click.testing import CliRunner
+from codewiki.cli.commands.html import html_command
 
 
 @pytest.fixture
@@ -99,3 +101,42 @@ def test_generate_standalone_missing_vendor_raises(tmp_path, tmp_docs, leaves, m
             leaves=leaves,
             module_tree=module_tree,
         )
+
+
+@pytest.fixture
+def spec_and_docs(tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+
+    (docs / "intro.md").write_text("# Intro\nHello.", encoding="utf-8")
+
+    spec = {
+        "language": "English",
+        "sections": [{"title": "Introduction", "file": "intro.md"}],
+    }
+    spec_path = docs / "doc_spec.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+    dep = {"analyzed_at": "2026-07-05", "commit_id": "abc1234", "total_components": 3}
+    (docs / "dependency_graph.json").write_text(json.dumps(dep), encoding="utf-8")
+
+    return tmp_path, docs, spec_path
+
+
+def test_html_command_generates_standalone(spec_and_docs):
+    root, docs, spec_path = spec_and_docs
+    out_dir = root / "site"
+
+    runner = CliRunner()
+    result = runner.invoke(html_command, [
+        "--spec", str(spec_path),
+        "--input", str(docs),
+        "--output", str(out_dir),
+        "--title", "Test Docs",
+    ])
+
+    assert result.exit_code == 0, result.output
+    assert (out_dir / "standalone.html").exists()
+    content = (out_dir / "standalone.html").read_text(encoding="utf-8")
+    assert "cdn.jsdelivr.net" not in content
+    assert "Hello." in content
