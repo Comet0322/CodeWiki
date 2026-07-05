@@ -4,7 +4,7 @@ HTML generator for GitHub Pages documentation viewer.
 
 import json
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from codewiki.cli.utils.errors import FileSystemError
 from codewiki.cli.utils.fs import safe_write, safe_read
@@ -18,18 +18,20 @@ class HTMLGenerator:
     and configuration for client-side markdown rendering.
     """
     
-    def __init__(self, template_dir: Optional[Path] = None):
+    def __init__(self, template_dir: Optional[Path] = None, vendor_dir: Optional[Path] = None):
         """
         Initialize HTML generator.
-        
+
         Args:
             template_dir: Path to template directory (default: package templates)
+            vendor_dir: Path to vendor JS directory (default: package vendor)
         """
         if template_dir is None:
-            # Use package templates
             template_dir = Path(__file__).parent.parent / "templates" / "github_pages"
-        
+        if vendor_dir is None:
+            vendor_dir = Path(__file__).parent.parent / "templates" / "vendor"
         self.template_dir = Path(template_dir)
+        self.vendor_dir = Path(vendor_dir)
         
     
     def load_module_tree(self, docs_dir: Path) -> Dict[str, Any]:
@@ -170,6 +172,93 @@ class HTMLGenerator:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         safe_write(output_path, html_content)
     
+    def generate_standalone(
+        self,
+        output_path: Path,
+        title: str,
+        input_dir: Path,
+        leaves: List[Dict[str, Any]],
+        module_tree: Optional[Dict[str, Any]] = None,
+        repository_url: Optional[str] = None,
+        github_pages_url: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Generate a fully standalone HTML file with embedded JS and markdown content.
+
+        All vendor JS (mermaid, marked, svg-pan-zoom) is inlined so the file
+        works without any network access.
+
+        Args:
+            output_path: Destination .html file path
+            title: Documentation title shown in <title> and header
+            input_dir: Root directory containing the markdown files
+            leaves: List of leaf dicts with at least {"file": "...", "title": "..."}
+            module_tree: Navigation tree structure (defaults to {})
+            repository_url: Optional GitHub repository URL
+            github_pages_url: Optional GitHub Pages URL
+            config: Additional configuration dict
+            metadata: Metadata dict (language, generated timestamp, etc.)
+        """
+        if module_tree is None:
+            module_tree = {}
+        if config is None:
+            config = {}
+
+        def _load_vendor(filename: str) -> str:
+            path = self.vendor_dir / filename
+            if not path.exists():
+                raise FileSystemError(
+                    f"vendor file missing: {path} — reinstall the package"
+                )
+            return safe_read(path)
+
+        mermaid_js = _load_vendor("mermaid.min.js")
+        marked_js = _load_vendor("marked.min.js")
+        svg_pan_zoom_js = _load_vendor("svg-pan-zoom.min.js")
+
+        markdown_files: Dict[str, str] = {}
+        for leaf in leaves:
+            md_path = Path(input_dir) / leaf["file"]
+            markdown_files[leaf["file"]] = safe_read(md_path)
+
+        template_path = self.template_dir / "standalone_template.html"
+        if not template_path.exists():
+            raise FileSystemError(f"Template not found: {template_path}")
+        template_content = safe_read(template_path)
+
+        info_content = self._build_info_content(metadata)
+        show_info = "block" if info_content else "none"
+
+        repo_link = ""
+        if repository_url:
+            repo_link = (
+                f'<a href="{repository_url}" class="repo-link" target="_blank">'
+                "🔗 View Repository</a>"
+            )
+
+        html_content = template_content
+        for placeholder, value in {
+            "{{TITLE}}": self._escape_html(title),
+            "{{REPO_LINK}}": repo_link,
+            "{{SHOW_INFO}}": show_info,
+            "{{INFO_CONTENT}}": info_content,
+            "{{CONFIG_JSON}}": json.dumps(config, indent=2),
+            "{{MODULE_TREE_JSON}}": json.dumps(module_tree, indent=2),
+            "{{METADATA_JSON}}": json.dumps(metadata, indent=2) if metadata else "null",
+            "{{DOCS_BASE_PATH}}": "",
+            "{{MARKDOWN_FILES_JSON}}": json.dumps(markdown_files),
+            "{{MERMAID_JS}}": mermaid_js,
+            "{{MARKED_JS}}": marked_js,
+            "{{SVG_PAN_ZOOM_JS}}": svg_pan_zoom_js,
+        }.items():
+            html_content = html_content.replace(placeholder, value)
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write(output_path, html_content)
+
     def _build_info_content(self, metadata: Optional[Dict[str, Any]]) -> str:
         if not metadata:
             return ""
@@ -178,8 +267,6 @@ class HTMLGenerator:
 
         if metadata.get('language'):
             html_parts.append(f'<div class="info-row"><strong>Language:</strong> {self._escape_html(metadata["language"])}</div>')
-        if metadata.get('target_audience'):
-            html_parts.append(f'<div class="info-row"><strong>Audience:</strong> {self._escape_html(metadata["target_audience"])}</div>')
         if metadata.get('generated'):
             html_parts.append(f'<div class="info-row"><strong>Generated:</strong> {self._escape_html(metadata["generated"])}</div>')
         if metadata.get('commit_id'):
