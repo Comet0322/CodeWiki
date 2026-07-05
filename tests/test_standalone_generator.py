@@ -103,6 +103,33 @@ def test_generate_standalone_missing_vendor_raises(tmp_path, tmp_docs, leaves, m
         )
 
 
+def test_generate_standalone_script_tag_in_markdown_is_escaped(tmp_path, module_tree):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "evil.md").write_text(
+        "# Evil\n```html\n</script><script>alert(1)</script>\n```",
+        encoding="utf-8",
+    )
+    leaves = [{"title": "Evil", "file": "evil.md"}]
+    module_tree_evil = {
+        "0": {"title": "Evil", "file": "evil.md", "components": ["_"], "children": {}}
+    }
+    gen = HTMLGenerator()
+    out = tmp_path / "site" / "standalone.html"
+    gen.generate_standalone(
+        output_path=out,
+        title="Test",
+        input_dir=docs,
+        leaves=leaves,
+        module_tree=module_tree_evil,
+    )
+    content = out.read_text(encoding="utf-8")
+    # After the MARKDOWN_FILES assignment line, raw </script> must not appear
+    # before the next </script> that closes the outer script block
+    script_block = content.split("const MARKDOWN_FILES =")[1].split("</script>")[0]
+    assert "</script>" not in script_block
+
+
 @pytest.fixture
 def spec_and_docs(tmp_path):
     docs = tmp_path / "docs"

@@ -133,7 +133,7 @@ class HTMLGenerator:
         # Build repository link
         repo_link = ""
         if repository_url:
-            repo_link = f'<a href="{repository_url}" class="repo-link" target="_blank">🔗 View Repository</a>'
+            repo_link = f'<a href="{self._escape_html(repository_url)}" class="repo-link" target="_blank">🔗 View Repository</a>'
         
         # Determine docs base path
         # For GitHub Pages: relative path to docs folder
@@ -234,7 +234,7 @@ class HTMLGenerator:
         repo_link = ""
         if repository_url:
             repo_link = (
-                f'<a href="{repository_url}" class="repo-link" target="_blank">'
+                f'<a href="{self._escape_html(repository_url)}" class="repo-link" target="_blank">'
                 "🔗 View Repository</a>"
             )
 
@@ -244,11 +244,11 @@ class HTMLGenerator:
             "{{REPO_LINK}}": repo_link,
             "{{SHOW_INFO}}": show_info,
             "{{INFO_CONTENT}}": info_content,
-            "{{CONFIG_JSON}}": json.dumps(config, indent=2),
-            "{{MODULE_TREE_JSON}}": json.dumps(module_tree, indent=2),
-            "{{METADATA_JSON}}": json.dumps(metadata, indent=2) if metadata else "null",
+            "{{CONFIG_JSON}}": json.dumps(config, indent=2).replace("</", "<\\/"),
+            "{{MODULE_TREE_JSON}}": json.dumps(module_tree, indent=2).replace("</", "<\\/"),
+            "{{METADATA_JSON}}": (json.dumps(metadata, indent=2) if metadata else "null").replace("</", "<\\/"),
             "{{DOCS_BASE_PATH}}": "",
-            "{{MARKDOWN_FILES_JSON}}": json.dumps(markdown_files),
+            "{{MARKDOWN_FILES_JSON}}": json.dumps(markdown_files).replace("</", "<\\/"),
             "{{MERMAID_JS}}": mermaid_js,
             "{{MARKED_JS}}": marked_js,
             "{{SVG_PAN_ZOOM_JS}}": svg_pan_zoom_js,
