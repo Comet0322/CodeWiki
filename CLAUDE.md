@@ -71,14 +71,18 @@ codewiki analyze --repo <codebase_path> --output <output_dir>
 輸出：`module_map.md`（含產生時的 git hash），格式如下：
 
 ```markdown
+<!-- commit: <hash> -->
+
 ## api
 **功能**：處理 HTTP 路由與認證
 **檔案**：src/api/routes.py, src/api/auth.py
+**Token 量**：11,300
 **依賴**：database, utils
 
 ## database
 **功能**：ORM 層，封裝所有 DB 操作
 **檔案**：src/db/models.py, src/db/queries.py
+**Token 量**：4,200
 **依賴**：（無）
 ```
 
@@ -207,21 +211,26 @@ codewiki html --spec <output_dir>/doc_spec.json --input <output_dir> --output <h
 
 ## 實作任務
 
-### T1 — 建立 skill 檔案
-**新檔案**：`.claude/skills/codewiki-docs/SKILL.md`
+### T1 — 建立 skill 檔案 ✅（概要完成，需細化）
+**檔案**：`.claude/skills/codewiki-docs/SKILL.md`
 
-- [ ] Phase 0 互動式對話流程（只問路徑、語言、輸出目錄）
-- [ ] Phase 1 快取檢查 + 呼叫 `codewiki analyze`
-- [ ] Phase 2 dispatch module-indexer + module-reviewer subagent（全自動）
-- [ ] Phase 3 dispatch toc-planner subagent + 等待使用者確認
-- [ ] Phase 4 遞迴展開葉節點，dispatch parallel doc-writer subagents
-- [ ] Phase 5 dispatch per-doc validator + corrector subagents
-- [ ] Phase 6 呼叫 `codewiki html` 並報告驗證結果
+- [x] Phase 0~6 概要流程建立
+- [ ] **Phase 2**：補上 module-indexer/module-reviewer 的 dispatch 細節與 prompt 指引
+- [ ] **Phase 3**：補上 toc-planner/toc-reviewer 的 dispatch 細節與 prompt 指引
+- [ ] **Phase 4**：補上拓撲排序邏輯、doc-writer dispatch 方式
+- [ ] **Phase 5**：補上 validator/corrector dispatch 與重試邏輯
 
-### T5 — Subagent prompt templates
-每個 subagent 類型需要對應的 prompt template：
-- `module-indexer` — 讀 `codebase_index.md`，輸出 module_map.md
-- `toc-planner` — 讀 module_map + Phase 0 確認的語言，輸出 doc_spec.json 草稿
-- `doc-writer` — 讀 source code + spec，輸出 markdown
-- `validator` — 讀 markdown + template（若有），對照 template 所有要求輸出 pass/fail + gaps
-- `corrector` — 讀 draft + gaps，輸出 corrected markdown
+### T2 — Subagent prompt templates
+每個 subagent 需要明確的 prompt，說明輸入、輸出格式、判斷準則：
+
+- [ ] `module-indexer` — 讀 `codebase_index.md`，按目錄結構 + depends_on + in_degree 分組，輸出 `module_map.md`
+- [ ] `module-reviewer` — 確認每個檔案有模組歸屬、邊界合理，直接修正後輸出
+- [ ] `toc-planner` — 讀 `module_map.md` + 使用者需求，設計目錄，每個模組標記收入或略過
+- [ ] `toc-reviewer` — 確認無遺漏、無循環依賴，直接修正後輸出
+- [ ] `doc-writer` — 讀原始碼 / 子章節 / 跨樹文檔，依 spec 與使用者需求生成 markdown
+- [ ] `validator` — 對照 template 所有要求輸出 pass/fail + gaps 清單
+- [ ] `corrector` — 讀 draft + gaps，輸出修正後的 markdown
+
+### T3 — 端對端測試
+- [ ] 選一個小型 codebase 跑完整流程（Phase 0 → Phase 6）
+- [ ] 驗證 `codewiki html` 能正確讀取生成的 markdown 並輸出 HTML
