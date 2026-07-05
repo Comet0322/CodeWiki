@@ -152,19 +152,31 @@ def is_git_repository(repo_path: Path) -> bool:
 def get_git_commit_hash(repo_path: Path) -> str:
     """
     Get current git commit hash.
-    
-    Searches parent directories to support monorepo subdirectories.
-    
+
+    Uses git subprocess directly for reliability across environments.
+    Falls back to gitpython if git CLI is unavailable.
+
     Args:
         repo_path: Path inside a git repository
-        
+
     Returns:
         Commit hash or empty string if not in a git repo
     """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_path), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+
     repo = _get_git_repo(repo_path)
     if repo is None:
         return ""
-    
     try:
         return repo.head.commit.hexsha
     except Exception:
