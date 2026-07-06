@@ -62,6 +62,7 @@ Output a JSON object — do not write any files. The JSON must conform to the `d
 
 - Every module must appear either in a section's `source_modules` or in `skipped` — silent omissions are not allowed.
 - Section nesting depth should follow the profile's guidance — avoid being overly flat or overly deep.
+- **Dot-notation grouping**: when `module_map.md` contains modules sharing a common prefix (e.g., `foo.bar`, `foo.baz`, `foo.qux`), always group them together under a single parent section named after the prefix. The parent section must have both `file` (summary index page) and `children` (one leaf section per sub-module). Never scatter dot-notation sub-modules under unrelated parent sections.
 
 ## Pre-output Self-check
 
