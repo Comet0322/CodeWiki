@@ -171,6 +171,9 @@ DEFAULT_INCLUDE_PATTERNS = [
     "*.bas",
     "*.frm",
     "*.cls",
+    "*.pas",
+    "*.dpr",
+    "*.dpk",
     "*.scala",
     "*.clj",
     "*.hs",
@@ -217,6 +220,9 @@ CODE_EXTENSIONS = {
     ".bas": "vb6",
     ".frm": "vb6",
     ".cls": "vb6",
+    ".pas": "delphi",
+    ".dpr": "delphi",
+    ".dpk": "delphi",
 }
 
 # Entry point file patterns for all supported languages
