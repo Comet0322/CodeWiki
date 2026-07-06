@@ -18,10 +18,10 @@ You will receive a path to `codebase_index.md` and an output path. Read `codebas
 
 ## Output Format
 
-Write to `module_map.md`. The first line must be a commit hash comment containing only the hash token — extract it from `codebase_index.md`'s first line (format: `<!-- commit: <hash> exclude: ... -->`), do not copy the full line:
+Write to `module_map.md`. The first line must be a cache-key comment — extract the `commit` and `exclude` tokens from `codebase_index.md`'s second line (format: `commit: <hash> | files: N | tokens: N | exclude: <patterns>`):
 
 ```
-<!-- commit: <hash> -->
+<!-- commit: <hash> | exclude: <patterns> -->
 
 ## <module_name>
 **Purpose**: <one-sentence description of the module's responsibility>

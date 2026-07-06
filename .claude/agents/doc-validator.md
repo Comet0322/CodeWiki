@@ -13,8 +13,10 @@ You will receive a path to an already-generated markdown document, a list of `so
 ### 1. Profile Compliance
 
 Determine the applicable section type from the inputs:
+- `type: "overview"` → overview section skeleton
 - `has_children: true` + `source_modules` present → module group section skeleton
 - `has_children: false` + `source_modules` present → module section skeleton (leaf node)
+- `has_children: true` + no `source_modules` → summary/aggregate section skeleton
 
 Read the profile, find the writing guidelines for that section type, and verify:
 
@@ -24,7 +26,7 @@ Read the profile, find the writing guidelines for that section type, and verify:
 
 ### 2. Source Code Coverage (only when source_modules are present)
 
-Use the `codebase_index` path passed in the spec. For each file belonging to this section's modules, extract from the index:
+For each module name in `source_modules`, find its `## <name>` entry in `module_map.md` and read the `**Files**:` line to get the list of source files. Then open the `codebase_index` and for each of those files find its block and extract:
 - `functions:` line → public symbols that must be mentioned in the document
 - `class ClassName:` lines → public classes that must be mentioned
 

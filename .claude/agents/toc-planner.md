@@ -73,4 +73,4 @@ Before outputting, run the following checks and fix any issues directly:
 - **Exactly one overview**: there is exactly one section with `"type": "overview"`, positioned first in `sections`.
 - **Valid JSON**: output is parseable JSON with no trailing commas or comments.
 
-After fixing, output the JSON followed by one line: `// Planned N sections, skipped M modules.`
+After fixing, output the JSON only — no trailing comments, no extra lines after the closing `}`.

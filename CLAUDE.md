@@ -96,7 +96,7 @@ CodeWiki 只負責：
 - [x] **1.5** — doc-writer dispatch：`child_sections` 為空時仍需傳 key（空陣列），不可省略
 - [x] **1.6** — overview 節點靠 "neither" fallback 偵測太脆弱：doc_spec.json 加 `"type": "overview"` 明確標記
 - [x] **1.7** — doc-validator 無法區分葉節點 vs 群組節點：dispatch 需補傳 `has_children`
-- [ ] **1.8** — Batch rule 2「直接子葉節點」應改為「遞迴所有後代葉節點」
+- [x] **1.8** — Batch rule 2「直接子葉節點」應改為「遞迴所有後代葉節點」
 - [x] **1.9** — subagent 失敗無處理路徑：`status: "failed"` + `retries: N`，上限後暫停告知使用者
 - [ ] **1.10** — 單一檔案 codebase 無模組可合併：module-mapper 需 fallback
 

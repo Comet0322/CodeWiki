@@ -22,7 +22,7 @@ Read both files first:
 
 If `source_modules` is non-empty:
 
-Use the `codebase_index` path passed in the spec. For each file belonging to this section's modules, find its block in the index and extract:
+For each module name in `source_modules`, find its `## <name>` entry in `module_map.md` and read the `**Files**:` line to get the list of source files. Then open `codebase_index` and for each of those files find its block and extract:
 - `functions:` line → public functions and methods
 - `class ClassName:` lines → public classes (with their docstring summary)
 - `private:` line → private symbols (note these exist; do not document in detail)
@@ -85,12 +85,11 @@ After writing the file, immediately read it back and run the following checks in
 
 **2. H1 heading**: the first non-empty line must be `# <section title>` (codewiki html uses this as the navigation title). If missing or malformed, add the correct H1.
 
-**3. H2 structure**: extract all `## `-prefixed lines from the file and compare against the H2 list for the corresponding section type in the profile skeleton:
-- Same count
-- Every heading matches exactly (including punctuation and spacing)
-- Same order
+**3. H2 structure**: extract all `## `-prefixed lines from the file and compare against the H2 list for the corresponding section type in the profile skeleton. For each H2 in the skeleton:
+- If its description contains "省略此 H2" or "(optional)" → it is optional; its absence is not an error, but if present it must match exactly.
+- Otherwise → it is required; it must be present, match exactly (including punctuation and spacing), and appear in the correct order.
 
-If anything does not match (extra H2, missing H2, renamed heading, wrong order), fix it immediately.
+If a required H2 is missing, add it. If any H2 (required or optional) is renamed or out of order, fix it.
 
 ## Completion
 
