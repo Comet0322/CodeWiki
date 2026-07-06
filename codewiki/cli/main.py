@@ -28,9 +28,11 @@ def version():
 
 from codewiki.cli.commands.analyze import analyze_command
 from codewiki.cli.commands.html import html_command
+from codewiki.cli.commands.scan import scan_command
 
 cli.add_command(analyze_command, name="analyze")
 cli.add_command(html_command, name="html")
+cli.add_command(scan_command, name="scan")
 
 
 def main():

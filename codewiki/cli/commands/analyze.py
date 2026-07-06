@@ -109,12 +109,16 @@ def _build_enriched_index(
     }
 
 
-def _render_index_markdown(index: dict) -> str:
+def _render_index_markdown(index: dict, exclude_patterns: Optional[list] = None) -> str:
     """Render codebase_index dict as compact markdown for LLM consumption."""
     meta = index["meta"]
+    header = f"commit: {meta['commit_id'] or 'n/a'} | files: {meta['total_files']} | tokens: {meta['total_tokens']}"
+    if exclude_patterns:
+        normalised = ",".join(sorted(p.strip() for p in exclude_patterns))
+        header += f" | exclude: {normalised}"
     lines = [
         f"# {meta['repo_name']} — codebase index",
-        f"commit: {meta['commit_id'] or 'n/a'} | files: {meta['total_files']} | tokens: {meta['total_tokens']}",
+        header,
         "",
     ]
 
@@ -247,7 +251,7 @@ def analyze_command(repo: str, output: str, include: Optional[str], exclude: Opt
         enriched = _build_enriched_index(components, repo_path, commit_id)
 
         md_path = output_dir / "codebase_index.md"
-        md_path.write_text(_render_index_markdown(enriched), encoding="utf-8")
+        md_path.write_text(_render_index_markdown(enriched, exclude_patterns), encoding="utf-8")
         logger.success(f"Saved → {md_path}")
 
     except KeyboardInterrupt:

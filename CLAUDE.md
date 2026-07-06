@@ -35,7 +35,7 @@ CodeWiki 只負責：
     {
       "title": "系統概覽",
       "file": "overview.md",
-      "source_sections": ["後端"]
+      "type": "overview"
     },
     {
       "title": "後端",
@@ -45,7 +45,7 @@ CodeWiki 只負責：
           "title": "API 層",
           "file": "backend/api.md",
           "source_modules": ["api"],
-          "template": "templates/api.md"
+          "status": "done"
         },
         {
           "title": "資料庫",
@@ -64,8 +64,9 @@ CodeWiki 只負責：
 - `file` + `children` 可同時存在
 - `file` 路徑相對於 `--input` 目錄
 - `source_modules`：讀原始碼生成
-- `source_sections`：讀已生成的跨樹文檔
-- `check: true`：該節點已通過 doc-writer + doc-validator，由 skill 在節點完成後寫入；re-run 時跳過此節點
+- `file` 無 `source_modules` 無 `children` → overview 節點，排程最後執行，doc-writer 讀 output 目錄所有已生成文檔
+- `status: "done"`：該節點已通過 doc-writer + doc-validator，由 skill 在節點完成後寫入；re-run 時跳過此節點
+- `status: "failed"` + `retries: N`：失敗 N 次（上限 3），skill 暫停等使用者決定重試或中止
 - `codewiki html` 導覽標題取自 markdown 第一個 `# ` heading
 
 ---
@@ -82,6 +83,37 @@ CodeWiki 只負責：
 | 文檔規劃（spec） | **Subagent + 使用者確認** |
 | Markdown 內容生成 | **Parallel subagents** |
 | 內容驗證與修正 | **Per-doc subagents** |
+
+---
+
+## 已知問題與改善清單
+
+### 容易出錯的邏輯
+
+- [x] **1.1** — exclude pattern 比對不穩定：codewiki analyze 寫入時排序正規化，skill 讀回直接比對
+- [x] **1.3** — module-mapper commit hash 格式：只能複製 hash token，不能複製整行 comment
+- [x] **1.4** — toc-planner 輸出格式歧義：無法可靠轉成 doc_spec.json；需改為嚴格欄位格式或直接輸出 JSON
+- [x] **1.5** — doc-writer dispatch：`child_sections` 為空時仍需傳 key（空陣列），不可省略
+- [x] **1.6** — overview 節點靠 "neither" fallback 偵測太脆弱：doc_spec.json 加 `"type": "overview"` 明確標記
+- [x] **1.7** — doc-validator 無法區分葉節點 vs 群組節點：dispatch 需補傳 `has_children`
+- [ ] **1.8** — Batch rule 2「直接子葉節點」應改為「遞迴所有後代葉節點」
+- [x] **1.9** — subagent 失敗無處理路徑：`status: "failed"` + `retries: N`，上限後暫停告知使用者
+- [ ] **1.10** — 單一檔案 codebase 無模組可合併：module-mapper 需 fallback
+
+### UX：不必要的來回
+
+- [x] **2.1** — 語言與 profile 選擇是兩個分開問答，可合成一次
+- [x] **2.2** — 自訂 profile 命名是第三次停頓，可併入草稿確認
+- [x] **2.3** — Phase 0 與 Phase 1 scan 確認都在問 exclude：`codewiki scan` 提前到 Phase 0，一次確認
+- [x] **2.4** — workflow 總覽表格未反映自訂 profile 的額外停頓
+
+### UX：強迫自由輸入
+
+- [x] **3.1** — Phase 0 exclude 欄位：改為 scan 推薦的勾選清單
+- [x] **3.2** — 語言選擇：改為明確選單（1. 繁體中文 2. English 3. 其他）
+- [x] **3.3** — 自訂 profile「描述需求」：改為現有 profile 的填空模板，不強迫使用者從空白開始
+- [x] **3.4** — TOC 確認只能散文回答：改為編號清單 + 簡單指令語法（`toggle 3`、`merge 5 6`、`rename 7 "新標題"`）
+- [N/A] **3.5** — doc-validator 每次重新詮釋 profile：`status: "done"` 確保每節點只跑一次，非確定性不成立
 
 ---
 
