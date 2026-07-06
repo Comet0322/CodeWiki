@@ -173,6 +173,8 @@ def detect_supported_languages(directory: Path) -> List[Tuple[str, int]]:
         'C#': ['.cs'],
         'PHP': ['.php', '.phtml', '.inc'],
         'Kotlin': ['.kt', '.kts'],
+        'VB6': ['.bas', '.frm', '.cls'],
+        'Delphi': ['.pas', '.dpr', '.dpk'],
     }
     
     # Directories to exclude from counting

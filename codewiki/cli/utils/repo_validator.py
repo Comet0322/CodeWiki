@@ -32,6 +32,12 @@ SUPPORTED_EXTENSIONS = {
     '.inc',     # PHP includes
     '.kt',      # Kotlin
     '.kts',     # Kotlin Scripts
+    '.bas',     # VB6
+    '.frm',     # VB6
+    '.cls',     # VB6
+    '.pas',     # Delphi
+    '.dpr',     # Delphi
+    '.dpk',     # Delphi
 }
 
 
@@ -62,7 +68,7 @@ def validate_repository(repo_path: Path) -> Tuple[Path, List[Tuple[str, int]]]:
     if not languages:
         raise RepositoryError(
             f"No supported code files found in {repo_path}\n\n"
-            "CodeWiki supports: Python, Java, JavaScript, TypeScript, C, C++, C#, PHP\n\n"
+            "CodeWiki supports: Python, Java, JavaScript, TypeScript, C, C++, C#, PHP, Kotlin, VB6, Delphi\n\n"
             "Please navigate to a code repository or specify a custom directory:\n"
             "  cd /path/to/your/project\n"
             "  codewiki generate"
