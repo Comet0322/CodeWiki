@@ -65,6 +65,7 @@ CodeWiki 只負責：
 - `file` 路徑相對於 `--input` 目錄
 - `source_modules`：讀原始碼生成
 - `source_sections`：讀已生成的跨樹文檔
+- `check: true`：該節點已通過 doc-writer + doc-validator，由 skill 在節點完成後寫入；re-run 時跳過此節點
 - `codewiki html` 導覽標題取自 markdown 第一個 `# ` heading
 
 ---
