@@ -168,6 +168,9 @@ DEFAULT_INCLUDE_PATTERNS = [
     "*.swift",
     "*.kt",
     "*.kts",
+    "*.bas",
+    "*.frm",
+    "*.cls",
     "*.scala",
     "*.clj",
     "*.hs",
@@ -211,6 +214,9 @@ CODE_EXTENSIONS = {
     ".kt": "kotlin",
     ".scala": "scala",
     ".cs": "csharp",
+    ".bas": "vb6",
+    ".frm": "vb6",
+    ".cls": "vb6",
 }
 
 # Entry point file patterns for all supported languages
